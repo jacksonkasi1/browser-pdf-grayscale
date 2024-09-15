@@ -1,23 +1,28 @@
+// app/compress/page.tsx
 
 'use client';
 
 import React, { useState } from 'react';
 import { compressPDF } from '@/utils/compress-helper';
-import 'regenerator-runtime/runtime'; // Ensure regenerator-runtime is loaded for async functions
+import "regenerator-runtime/runtime"; // Ensure regenerator-runtime is loaded for async functions
 
 const CompressPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [compressedFileUrl, setCompressedFileUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string>('');
-  const [progress, setProgress] = useState<number>(0);
+  const [progress, setProgress] = useState<{ finished: boolean; progress: number; total: number }>({
+    finished: false,
+    progress: 0,
+    total: 0,
+  });
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       setFile(event.target.files[0]);
       setCompressedFileUrl(null); // Reset previous result
       setStatus('');
-      setProgress(0);
+      setProgress({ finished: false, progress: 0, total: 0 });
     }
   };
 
@@ -26,19 +31,24 @@ const CompressPage: React.FC = () => {
 
     setLoading(true);
     setStatus('');
-    setProgress(0);
+    setProgress({ finished: false, progress: 0, total: 0 });
 
     try {
       await compressPDF(
         file,
-        (pdfDataURL: string) => {
+        file.name,
+        (element) => {
+          // responseCallback
+          const { pdfDataURL, url } = element;
           setCompressedFileUrl(pdfDataURL);
           setStatus('Compression completed successfully.');
         },
-        (finished: boolean, progressValue: number, totalValue: number) => {
-          setProgress(progressValue);
+        (finished, progressValue, totalValue) => {
+          // progressCallback
+          setProgress({ finished, progress: progressValue, total: totalValue });
         },
-        (text: string) => {
+        (text) => {
+          // statusUpdateCallback
           setStatus(text);
         }
       );
@@ -64,8 +74,8 @@ const CompressPage: React.FC = () => {
 
       {loading && (
         <div style={styles.progressContainer}>
-          <progress value={progress} max={100}></progress>
-          <span>{progress.toFixed(2)}%</span>
+          <progress value={progress.progress} max={progress.total}></progress>
+          <span>{progress.progress}%</span>
         </div>
       )}
 
