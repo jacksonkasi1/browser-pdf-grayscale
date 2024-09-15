@@ -1,67 +1,71 @@
-// app/page.tsx
-
 'use client';
 
-import { useState } from 'react';
-import { convertPdfToGrayscale } from '@/utils/pdfProcessor';
+// Import regenerator-runtime before any other imports
+import "regenerator-runtime/runtime";
 
-export default function Home() {
-  const [originalPdf, setOriginalPdf] = useState<Uint8Array | null>(null);
-  const [grayscalePdf, setGrayscalePdf] = useState<Uint8Array | null>(null);
-  const [processing, setProcessing] = useState(false);
+import React, { useState } from 'react';
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const arrayBuffer = reader.result as ArrayBuffer;
-        setOriginalPdf(new Uint8Array(arrayBuffer));
-      };
-      reader.readAsArrayBuffer(file);
+import { runWasm } from '@/utils/compress-helper';
+
+const CompressPage: React.FC = () => {
+  const [file, setFile] = useState<File | null>(null);
+  const [compressedFileUrl, setCompressedFileUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      setFile(event.target.files[0]);
+      setCompressedFileUrl(null); // Reset previous result
     }
   };
 
-  const handleConvert = async () => {
-    if (!originalPdf) return;
-    setProcessing(true);
+  const handleCompress = async () => {
+    if (!file) return;
+
+    setLoading(true);
     try {
-      const result = await convertPdfToGrayscale(originalPdf);
-      setGrayscalePdf(result);
-    } catch (error) {
-      console.error('Conversion failed:', error);
-      alert('Failed to convert PDF to grayscale.');
-    }
-    setProcessing(false);
-  };
+      const compressedBlob = await runWasm(file);
 
-  const handleDownload = () => {
-    if (!grayscalePdf) return;
-    const blob = new Blob([grayscalePdf], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'grayscale.pdf';
-    a.click();
-    URL.revokeObjectURL(url);
+      // Create a URL for the compressed PDF file
+      const url = URL.createObjectURL(compressedBlob);
+      setCompressedFileUrl(url);
+    } catch (error) {
+      console.error('Compression failed:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div style={{ padding: '2rem' }}>
-      <h1>PDF Color to Grayscale Converter</h1>
-      <input type="file" accept="application/pdf" onChange={handleFileUpload} />
-      {originalPdf && (
-        <div style={{ marginTop: '1rem' }}>
-          <button onClick={handleConvert} disabled={processing}>
-            {processing ? 'Converting...' : 'Convert to Grayscale'}
-          </button>
-        </div>
-      )}
-      {grayscalePdf && (
-        <div style={{ marginTop: '1rem' }}>
-          <button onClick={handleDownload}>Download Grayscale PDF</button>
+    <div >
+      <h1>Compress PDF</h1>
+
+      <input type="file" accept="application/pdf" onChange={handleFileChange} />
+
+      <button onClick={handleCompress} disabled={loading || !file}>
+        {loading ? 'Compressing...' : 'Compress PDF'}
+      </button>
+
+      {compressedFileUrl && (
+        <div style={styles.resultContainer}>
+          <a href={compressedFileUrl} download="compressed.pdf">
+            Download Compressed PDF
+          </a>
         </div>
       )}
     </div>
   );
-}
+};
+
+// Simple styling for this page
+const styles = {
+  container: {
+    textAlign: 'center',
+    margin: '20px',
+  },
+  resultContainer: {
+    marginTop: '20px',
+  },
+};
+
+export default CompressPage;
