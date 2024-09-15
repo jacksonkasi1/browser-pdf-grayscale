@@ -1,4 +1,4 @@
-# Reource
+# Resource
 
 - https://meyer-laurent.com/playing-around-webassembly-and-ghostscript
 - https://github.com/laurentmmeyer/ghostscript-pdf-compress.wasm
